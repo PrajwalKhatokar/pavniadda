@@ -1,0 +1,13 @@
+{
+  "name": "chatadda",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ChatAdda - chat UI with Vercel serverless proxy for Hugging Face",
+  "scripts": {
+    "build": "node scripts/build-check.mjs",
+    "start": "python -m http.server 5500"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

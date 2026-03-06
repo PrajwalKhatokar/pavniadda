@@ -1,11 +1,5 @@
-const API_URL = "https://router.huggingface.co/v1/chat/completions";
-const HF_TOKEN = "YOUR_HUGGINGFACE_TOKEN"; // Replace with your real token
-const MODEL = "Qwen/Qwen3.5-27B:novita";
-const MAX_TOKENS = 60;
-const TEMPERATURE = 0.1;
+const API_URL = "/api/chat";
 const REQUEST_TIMEOUT_MS = 25000;
-const SPEED_SYSTEM_PROMPT =
-  "You are a concise assistant. Reply in 1-2 short sentences.";
 const CHAT_STORAGE_KEY = "chatadda_chats_v1";
 const CURRENT_CHAT_KEY = "chatadda_current_chat_v1";
 
@@ -142,41 +136,41 @@ async function getAIReply(userMessage) {
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   let response;
+  let rawText = "";
   try {
     response = await fetch(API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${HF_TOKEN}`,
         "Content-Type": "application/json",
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: MODEL,
-        max_tokens: MAX_TOKENS,
-        temperature: TEMPERATURE,
-        messages: [
-          {
-            role: "system",
-            content: SPEED_SYSTEM_PROMPT,
-          },
-          {
-            role: "user",
-            content: userMessage,
-          },
-        ],
+        message: userMessage,
       }),
     });
+    rawText = await response.text();
   } finally {
     clearTimeout(timeoutId);
   }
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`API error ${response.status}: ${errorText}`);
+  let data;
+  try {
+    data = rawText ? JSON.parse(rawText) : {};
+  } catch {
+    data = null;
   }
 
-  const data = await response.json();
-  return data?.choices?.[0]?.message?.content || "No response received.";
+  if (!response.ok) {
+    const detail =
+      data?.error || rawText || `Request failed with status ${response.status}.`;
+    throw new Error(detail);
+  }
+
+  if (!data?.reply || typeof data.reply !== "string") {
+    throw new Error("Invalid response format from server.");
+  }
+
+  return data.reply;
 }
 
 form.addEventListener("submit", async (event) => {
@@ -184,16 +178,6 @@ form.addEventListener("submit", async (event) => {
 
   const userMessage = input.value.trim();
   if (!userMessage) return;
-  if (!HF_TOKEN || HF_TOKEN === "YOUR_HUGGINGFACE_TOKEN") {
-    main.classList.add("chat-mode");
-    addMessage("user", userMessage);
-    addMessage(
-      "ai",
-      "Error: Add your Hugging Face token in script.js (HF_TOKEN) and refresh."
-    );
-    input.value = "";
-    return;
-  }
 
   if (!getCurrentChat()) {
     createChat();
